@@ -19,10 +19,9 @@ line.
 >
 > | Full Name | Roll Number | Email |
 > |-----------|-------------|-------|
-> | _<fill in>_ | _SCALERxxxxx_ | _name@scaler.com_ |
-> | _<fill in>_ | _SCALERxxxxx_ | _name@scaler.com_ |
->
-> _Replace the placeholders above with your real details before submitting._
+> | Shaurya Verma | 24BCS10151 | shaurya.24bcs10151@sst.scaler.com |
+> | Arjun Aggrawal | 24BCS10109 | arjun.24bcs10109@sst.scaler.com |
+> | Ashutosh Kumar | 24BCS10111 | ashutosh.24bcs10111@sst.scaler.com |
 
 ---
 
