@@ -20,7 +20,7 @@ line.
 > | Full Name | Roll Number | Email |
 > |-----------|-------------|-------|
 > | Shaurya Verma | 24BCS10151 | shaurya.24bcs10151@sst.scaler.com |
-> | Arjun Aggrawal | 24BCS10109 | arjun.24bcs10109@sst.scaler.com |
+> | Arjun Aggarwal | 24BCS10109 | arjun.24bcs10109@sst.scaler.com |
 > | Ashutosh Kumar | 24BCS10111 | ashutosh.24bcs10111@sst.scaler.com |
 
 ---
