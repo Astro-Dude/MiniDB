@@ -15,7 +15,7 @@ line.
 
 ## Team Information
 
-> **Team Name:** Team_MiniDB
+> **Team Name:** Failures
 >
 > | Full Name | Roll Number | Email |
 > |-----------|-------------|-------|
