@@ -11,6 +11,7 @@
 //   CREATE INDEX name ON t (col)
 //   INSERT INTO t VALUES (v, ...)
 //   SELECT col,... | *  FROM t  [JOIN t2 ON t.a = t2.b]  [WHERE pred AND ...]
+//   UPDATE t SET col = v, ... [WHERE pred AND ...]
 //   DELETE FROM t [WHERE pred AND ...]
 //   BEGIN | COMMIT | ROLLBACK
 // ============================================================================
@@ -22,7 +23,7 @@
 namespace minidb {
 
 enum class StmtType {
-  kCreateTable, kCreateIndex, kInsert, kSelect, kDelete,
+  kCreateTable, kCreateIndex, kInsert, kSelect, kUpdate, kDelete,
   kBegin, kCommit, kAbort
 };
 
@@ -83,6 +84,19 @@ struct SelectStmt : Statement {
   string join_right_table, join_right_col;
 
   vector<Predicate> where;  // predicates combined with AND
+};
+
+// One SET assignment in an UPDATE: <column> = <constant>, e.g. name = 'shubh'.
+struct Assignment {
+  string column;
+  Value  value;
+};
+
+struct UpdateStmt : Statement {
+  UpdateStmt() : Statement(StmtType::kUpdate) {}
+  string             table;
+  vector<Assignment> sets;    // SET col = v, ...
+  vector<Predicate>  where;
 };
 
 struct DeleteStmt : Statement {

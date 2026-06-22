@@ -65,6 +65,7 @@ CREATE TABLE t (col TYPE [PRIMARY KEY], ...);   -- TYPE = INT | VARCHAR
 CREATE INDEX name ON t (col);
 INSERT INTO t VALUES (...);
 SELECT col,... | *  FROM t  [JOIN t2 ON t.a = t2.b]  [WHERE pred AND ...];
+UPDATE t SET col = v, ... [WHERE pred AND ...];
 DELETE FROM t [WHERE pred AND ...];
 BEGIN;  COMMIT;  ROLLBACK;
 ```

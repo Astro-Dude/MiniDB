@@ -97,6 +97,7 @@ Database::Result Database::execute(Statement *stmt, Transaction *txn) {
     case StmtType::kCreateTable: return doCreateTable(static_cast<CreateTableStmt *>(stmt));
     case StmtType::kCreateIndex: return doCreateIndex(static_cast<CreateIndexStmt *>(stmt));
     case StmtType::kInsert:      return doInsert(static_cast<InsertStmt *>(stmt), txn);
+    case StmtType::kUpdate:      return doUpdate(static_cast<UpdateStmt *>(stmt), txn);
     case StmtType::kDelete:      return doDelete(static_cast<DeleteStmt *>(stmt), txn);
     case StmtType::kSelect:      return doSelect(static_cast<SelectStmt *>(stmt), txn);
     default: throw ExecError("transaction control must be handled by the session");
@@ -158,6 +159,88 @@ Database::Result Database::doInsert(InsertStmt *s, Transaction *txn) {
   Result r;
   r.affected = 1;
   r.message = "1 row inserted";
+  return r;
+}
+
+// ================================ UPDATE ===================================
+// Implemented as delete-then-insert per matching row: this reuses the existing
+// WAL records (kDelete + kInsert), index maintenance, abort-undo, and crash
+// recovery unchanged.  The row's RID changes as a result (a documented
+// consequence of the delete-then-insert approach).
+Database::Result Database::doUpdate(UpdateStmt *s, Transaction *txn) {
+  TableInfo *t = catalog_->getTable(s->table);
+  if (t == nullptr) throw BinderError("no such table: " + s->table);
+
+  lock_mgr_->lockExclusive(txn, t->name);   // a writer takes an exclusive lock
+
+  // Resolve each SET target to a column index and type-check its new value.
+  vector<pair<int, Value>> assigns;
+  for (auto &a : s->sets) {
+    int ci = t->schema.getColIdx(a.column);
+    if (ci < 0) throw BinderError("unknown column: " + a.column);
+    if (a.value.type() != t->schema.column(ci).type)
+      throw ExecError("type mismatch for column '" + a.column + "'");
+    assigns.emplace_back(ci, a.value);
+  }
+  bool pk_changed = false;
+  for (auto &[ci, v] : assigns) if (ci == t->pk_col) pk_changed = true;
+
+  vector<Predicate> preds = predicatesForTable(t, s->where);
+  vector<ColumnMeta> cols = makeTableColumns(t);
+
+  // Find matching rows up front (index range or full scan), exactly like DELETE.
+  // Materializing first means we don't iterate a heap we're also modifying.
+  ScanChoice c = Optimizer::chooseScan(t, preds);
+  vector<pair<RID, string>> matches;
+  if (c.use_index) {
+    for (RID rid : c.index->tree->range(c.low.get(), c.high.get())) {
+      string bytes;
+      if (!t->heap->getTuple(rid, &bytes)) continue;
+      Tuple tup = Tuple::deserialize(bytes.data(), t->schema);
+      if (evalAll(preds, cols, tup)) matches.emplace_back(rid, bytes);
+    }
+  } else {
+    for (auto it = t->heap->begin(); it != t->heap->end(); it.advance()) {
+      Tuple tup = Tuple::deserialize(it.bytes().data(), t->schema);
+      if (evalAll(preds, cols, tup)) matches.emplace_back(it.rid(), it.bytes());
+    }
+  }
+
+  for (auto &[rid, bytes] : matches) {
+    Tuple old_tup = Tuple::deserialize(bytes.data(), t->schema);
+
+    // Build the new row: copy the old values, then apply the SET assignments.
+    vector<Value> vals;
+    for (size_t i = 0; i < t->schema.size(); ++i) vals.push_back(old_tup.value(i));
+    for (auto &[ci, v] : assigns) vals[ci] = v;
+    Tuple new_tup(vals);
+    string new_bytes = new_tup.serialize(t->schema);
+
+    // If the PK changed, it must not collide with a *different* existing row.
+    if (t->pk_col >= 0 && pk_changed) {
+      RID found;
+      if (t->indexes[0]->tree->search(vals[t->pk_col], &found) && !(found == rid))
+        throw ExecError("duplicate primary key: " + vals[t->pk_col].toString());
+    }
+
+    // Step 1: delete the old version (WAL + heap + indexes + undo info).
+    log_->append({INVALID_LSN, txn->id(), LogType::kDelete, t->name, rid, bytes});
+    t->heap->markDelete(rid);
+    for (auto &idx : t->indexes) idx->tree->remove(old_tup.value(idx->col_idx), rid);
+    t->num_tuples--;
+    txn->addWrite({WriteRecord::kDelete, t->name, rid, bytes});
+
+    // Step 2: insert the new version.
+    RID new_rid = t->heap->insertTuple(new_bytes);
+    log_->append({INVALID_LSN, txn->id(), LogType::kInsert, t->name, new_rid, new_bytes});
+    for (auto &idx : t->indexes) idx->tree->insert(new_tup.value(idx->col_idx), new_rid);
+    t->num_tuples++;
+    txn->addWrite({WriteRecord::kInsert, t->name, new_rid, new_bytes});
+  }
+
+  Result r;
+  r.affected = static_cast<int>(matches.size());
+  r.message = to_string(r.affected) + " row(s) updated";
   return r;
 }
 

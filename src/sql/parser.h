@@ -27,6 +27,7 @@ class Parser {
   unique_ptr<Statement> parseCreate();
   unique_ptr<Statement> parseInsert();
   unique_ptr<Statement> parseSelect();
+  unique_ptr<Statement> parseUpdate();
   unique_ptr<Statement> parseDelete();
 
   // Shared sub-rules.

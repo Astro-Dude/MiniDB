@@ -64,6 +64,7 @@ class Database {
   Result doCreateTable(CreateTableStmt *s);
   Result doCreateIndex(CreateIndexStmt *s);
   Result doInsert(InsertStmt *s, Transaction *txn);
+  Result doUpdate(UpdateStmt *s, Transaction *txn);
   Result doDelete(DeleteStmt *s, Transaction *txn);
   Result doSelect(SelectStmt *s, Transaction *txn);
 

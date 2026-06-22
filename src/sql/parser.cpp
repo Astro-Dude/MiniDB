@@ -48,6 +48,7 @@ unique_ptr<Statement> Parser::parseStatement() {
   if (isKeyword("CREATE")) return parseCreate();
   if (isKeyword("INSERT")) return parseInsert();
   if (isKeyword("SELECT")) return parseSelect();
+  if (isKeyword("UPDATE")) return parseUpdate();
   if (isKeyword("DELETE")) return parseDelete();
   if (acceptKeyword("BEGIN"))  return make_unique<TxnStmt>(StmtType::kBegin);
   if (acceptKeyword("COMMIT")) return make_unique<TxnStmt>(StmtType::kCommit);
@@ -128,6 +129,24 @@ unique_ptr<Statement> Parser::parseSelect() {
     s->join_right_table = r.first;  s->join_right_col = r.second;
   }
 
+  s->where = parseWhere();
+  return s;
+}
+
+// ------------------------------- UPDATE ------------------------------------
+//   UPDATE <table> SET col = v [, col = v ...] [WHERE ...]
+unique_ptr<Statement> Parser::parseUpdate() {
+  expectKeyword("UPDATE");
+  auto s = make_unique<UpdateStmt>();
+  s->table = expectIdent();
+  expectKeyword("SET");
+  do {
+    Assignment a;
+    a.column = expectIdent();       // left side is a plain column name
+    expectSymbol("=");
+    a.value = parseValue();
+    s->sets.push_back(a);
+  } while (acceptSymbol(","));
   s->where = parseWhere();
   return s;
 }

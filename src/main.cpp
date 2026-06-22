@@ -88,8 +88,8 @@ int main(int argc, char **argv) {
         continue;
       }
       if (trimmed == ".help") {
-        cout << "SQL: CREATE TABLE/INDEX, INSERT, SELECT (WHERE/JOIN), DELETE, "
-                     "BEGIN, COMMIT, ROLLBACK\nMeta: .tables .crash .exit\n";
+        cout << "SQL: CREATE TABLE/INDEX, INSERT, SELECT (WHERE/JOIN), UPDATE, "
+                     "DELETE, BEGIN, COMMIT, ROLLBACK\nMeta: .tables .crash .exit\n";
         continue;
       }
       cout << "unknown command: " << trimmed << "\n";
